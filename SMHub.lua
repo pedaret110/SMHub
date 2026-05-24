@@ -1,5 +1,5 @@
 -- ============================================================
---  SM Hub v3  |  Fixed
+--  SM Hub Combined v3  |  All Fixed
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -11,12 +11,13 @@ local UserInputService = game:GetService("UserInputService")
 local player  = Players.LocalPlayer
 local camera  = workspace.CurrentCamera
 
--- ============================================================
---  REMOTES
--- ============================================================
+-- Remotes
 local waveRemote      = ReplicatedStorage:WaitForChild("WaveRemote")
 local bulletHitRemote = ReplicatedStorage:WaitForChild("BulletHit")
-local zombieFolder    = workspace:WaitForChild("Zombies")
+local gunConfigRemote = ReplicatedStorage:WaitForChild("GetGunConfig")
+
+-- Zombie folder
+local zombieFolder = workspace:WaitForChild("Zombies")
 
 -- ============================================================
 --  SETTINGS
@@ -28,42 +29,75 @@ local SETTINGS = {
     FOV        = 200,
     Smoothness = 0.3,
     TargetPart = "Head",
-    WallCheck  = false,
+    AimbotKey  = 81,
     AutoShoot  = false,
+    WallCheck  = false,
     Fly        = false,
     FlySpeed   = 40,
 }
 
 -- ============================================================
---  GUN TRACKING
+--  KEY TRACKING
 -- ============================================================
-local currentGunName = nil
-local bulletCount    = 0
+local heldKeys = {}
+local aimbotToggleSync = nil
 
+UserInputService.InputBegan:Connect(function(input, gpe)
+    heldKeys[input.KeyCode] = true
+    if not gpe and input.KeyCode.Value == SETTINGS.AimbotKey then
+        SETTINGS.Enabled = not SETTINGS.Enabled
+        if aimbotToggleSync then aimbotToggleSync(SETTINGS.Enabled) end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    heldKeys[input.KeyCode] = false
+end)
+
+-- ============================================================
+--  GUN CONFIG
+-- ============================================================
+local bulletCount = 0
 local function nextBulletId()
     bulletCount += 1
     return tostring(player.UserId) .. "_" .. tostring(bulletCount)
 end
 
+local gunConfig = nil
+
+local function getGunConfig()
+    local char = player.Character
+    if not char then return nil end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return nil end
+    local ok, result = pcall(function()
+        return gunConfigRemote:InvokeServer(tool.Name)
+    end)
+    if ok and result then
+        result.name = tool.Name
+        return result
+    end
+    return nil
+end
+
 local function onCharAdded(char)
     char.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then currentGunName = child.Name end
+        if child:IsA("Tool") then
+            task.wait(0.1)
+            gunConfig = getGunConfig()
+        end
     end)
     char.ChildRemoved:Connect(function(child)
-        if child:IsA("Tool") then currentGunName = nil end
+        if child:IsA("Tool") then gunConfig = nil end
     end)
 end
-if player.Character then onCharAdded(player.Character) end
-player.CharacterAdded:Connect(onCharAdded)
 
-local function getGunName()
-    local char = player.Character
-    if char then
-        local tool = char:FindFirstChildOfClass("Tool")
-        if tool then return tool.Name end
-    end
-    return currentGunName
-end
+if player.Character then onCharAdded(player.Character) end
+player.CharacterAdded:Connect(function(char)
+    onCharAdded(char)
+    SETTINGS.Enabled = false
+    SETTINGS.Fly = false
+    if aimbotToggleSync then aimbotToggleSync(false) end
+end)
 
 -- ============================================================
 --  RAYCAST
@@ -105,17 +139,6 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ============================================================
---  KEY TRACKING
--- ============================================================
-local heldKeys = {}
-UserInputService.InputBegan:Connect(function(input, gpe)
-    heldKeys[input.KeyCode] = true
-end)
-UserInputService.InputEnded:Connect(function(input)
-    heldKeys[input.KeyCode] = false
-end)
-
--- ============================================================
 --  FLY
 -- ============================================================
 local flyConnection = nil
@@ -129,7 +152,6 @@ local function startFly()
 
     humanoid.PlatformStand = true
 
-    -- Remove old instances
     for _, n in ipairs({"FlyBP","FlyBG"}) do
         local old = root:FindFirstChild(n)
         if old then old:Destroy() end
@@ -170,13 +192,18 @@ local function startFly()
         if heldKeys[Enum.KeyCode.S] then moveDir -= camCF.LookVector end
         if heldKeys[Enum.KeyCode.A] then moveDir -= camCF.RightVector end
         if heldKeys[Enum.KeyCode.D] then moveDir += camCF.RightVector end
-        if heldKeys[Enum.KeyCode.Space]      then moveDir += Vector3.new(0,1,0) end
-        if heldKeys[Enum.KeyCode.LeftShift]  then moveDir -= Vector3.new(0,1,0) end
+        if heldKeys[Enum.KeyCode.Space]     then moveDir += Vector3.new(0,1,0) end
+        if heldKeys[Enum.KeyCode.LeftShift] then moveDir -= Vector3.new(0,1,0) end
 
         if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
 
         flyBP.Position = r.Position + moveDir * speed * dt * 10
-        flyBG.CFrame   = CFrame.new(r.Position, r.Position + camCF.LookVector)
+        -- Only update gyro yaw from camera, ignore pitch to avoid tilt
+        local camLook = camCF.LookVector
+        local flatLook = Vector3.new(camLook.X, 0, camLook.Z)
+        if flatLook.Magnitude > 0.01 then
+            flyBG.CFrame = CFrame.new(r.Position, r.Position + flatLook)
+        end
     end)
 end
 
@@ -195,16 +222,11 @@ local function stopFly()
     if humanoid then humanoid.PlatformStand = false end
 end
 
-player.CharacterAdded:Connect(function()
-    SETTINGS.Fly = false
-    SETTINGS.Enabled = false
-end)
-
 -- ============================================================
 --  GUI SETUP
 -- ============================================================
 local playerGui = player.PlayerGui
-for _, name in ipairs({"CombinedHub","SMHub","AimbotUI"}) do
+for _, name in ipairs({"SMHub","AimbotUI","CombinedHub"}) do
     if playerGui:FindFirstChild(name) then playerGui[name]:Destroy() end
 end
 
@@ -220,7 +242,6 @@ local CARD   = Color3.fromRGB(28, 28, 28)
 local DIVCLR = Color3.fromRGB(50, 50, 50)
 local WIN_W  = 260
 
--- Main window
 local main = Instance.new("Frame")
 main.Size            = UDim2.new(0, WIN_W, 0, 45)
 main.Position        = UDim2.new(0, 20, 0.2, 0)
@@ -229,7 +250,6 @@ main.BorderSizePixel = 0
 main.Parent          = screenGui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
--- Shadow
 local shadow = Instance.new("Frame")
 shadow.Size                  = UDim2.new(1, 10, 1, 10)
 shadow.Position              = UDim2.new(0, -5, 0, -5)
@@ -240,7 +260,6 @@ shadow.ZIndex                = main.ZIndex - 1
 shadow.Parent                = main
 Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
 
--- Title bar
 local titleBar = Instance.new("Frame")
 titleBar.Size            = UDim2.new(1, 0, 0, 45)
 titleBar.BackgroundColor3= PURPLE
@@ -276,7 +295,7 @@ minimizeBtn.Font                 = Enum.Font.GothamBold
 minimizeBtn.TextSize             = 16
 minimizeBtn.Parent               = titleBar
 
--- Tab bar
+-- Tab bar (3 tabs)
 local tabBar = Instance.new("Frame")
 tabBar.Size            = UDim2.new(1, -20, 0, 32)
 tabBar.Position        = UDim2.new(0, 10, 0, 50)
@@ -301,11 +320,10 @@ local function makeTab(text, xScale, isActive)
     return btn
 end
 
-local tabSM     = makeTab("SM Hub", 0, true)
+local tabSM     = makeTab("SM Hub",    0,     true)
 local tabAimbot = makeTab("🎯 Aimbot", 0.333, false)
-local tabFly    = makeTab("✈️ Fly", 0.666, false)
+local tabFly    = makeTab("✈️ Fly",    0.666, false)
 
--- Scroll frame
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Size                   = UDim2.new(1, 0, 0, 340)
 scrollFrame.Position               = UDim2.new(0, 0, 0, 88)
@@ -373,7 +391,7 @@ local function makeToggle(parent, labelText, yPos, default, callback)
 
     local circle = Instance.new("Frame")
     circle.Size            = UDim2.new(0, 18, 0, 18)
-    circle.Position        = default and UDim2.new(0, 23, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
+    circle.Position        = default and UDim2.new(0,23,0.5,-9) or UDim2.new(0,3,0.5,-9)
     circle.BackgroundColor3= Color3.fromRGB(255,255,255)
     circle.BorderSizePixel = 0
     circle.Parent          = btn
@@ -449,7 +467,7 @@ local function makeSlider(parent, labelText, yPos, min, max, default, displayMul
     UserInputService.InputChanged:Connect(function(i)
         if sliderDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
             local rel   = math.clamp((i.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-            local value = min + (max - min) * rel
+            local value = min + (max-min) * rel
             fill.Size     = UDim2.new(rel, 0, 1, 0)
             knob.Position = UDim2.new(rel, -7, 0.5, -7)
             lbl.Text      = labelText .. ": " .. fmt(value)
@@ -500,11 +518,73 @@ local function makeDropdown(parent, labelText, yPos, options, default, callback)
     end)
 end
 
+local function makeKeybind(parent, labelText, yPos, defaultName, callback)
+    local frame = Instance.new("Frame")
+    frame.Size            = UDim2.new(1, -20, 0, 40)
+    frame.Position        = UDim2.new(0, 10, 0, yPos)
+    frame.BackgroundColor3= CARD
+    frame.BorderSizePixel = 0
+    frame.Parent          = parent
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size             = UDim2.new(0.5, 0, 1, 0)
+    lbl.Position         = UDim2.new(0, 12, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3       = Color3.fromRGB(255,255,255)
+    lbl.Text             = labelText
+    lbl.Font             = Enum.Font.Gotham
+    lbl.TextSize         = 13
+    lbl.TextXAlignment   = Enum.TextXAlignment.Left
+    lbl.Parent           = frame
+
+    local listening = false
+    local btn = Instance.new("TextButton")
+    btn.Size             = UDim2.new(0, 100, 0, 26)
+    btn.Position         = UDim2.new(1, -110, 0.5, -13)
+    btn.BackgroundColor3 = PURPLE
+    btn.TextColor3       = Color3.fromRGB(255,255,255)
+    btn.Text             = defaultName
+    btn.Font             = Enum.Font.GothamBold
+    btn.TextSize         = 12
+    btn.BorderSizePixel  = 0
+    btn.Parent           = frame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    btn.MouseButton1Click:Connect(function()
+        listening = true
+        btn.Text  = "..."
+        btn.BackgroundColor3 = Color3.fromRGB(200,150,0)
+    end)
+    UserInputService.InputBegan:Connect(function(input)
+        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+            listening = false
+            local name = input.KeyCode ~= Enum.KeyCode.Unknown
+                and input.KeyCode.Name
+                or "Key" .. tostring(input.KeyCode.Value)
+            btn.Text             = name
+            btn.BackgroundColor3 = PURPLE
+            callback(input.KeyCode.Value)
+        end
+    end)
+end
+
+-- ============================================================
+--  FOV CIRCLE  (declared BEFORE page content)
+-- ============================================================
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius   = SETTINGS.FOV
+fovCircle.Color    = PURPLE
+fovCircle.Thickness= 1.5
+fovCircle.Filled   = false
+fovCircle.NumSides = 64
+fovCircle.Visible  = false
+
 -- ============================================================
 --  PAGE CONTAINERS
 -- ============================================================
-local SM_CANVAS     = 260
-local AIMBOT_CANVAS = 400
+local SM_CANVAS     = 300
+local AIMBOT_CANVAS = 540
 local FLY_CANVAS    = 120
 
 local smContent = Instance.new("Frame")
@@ -528,6 +608,7 @@ flyContent.Parent                 = scrollFrame
 --  SM HUB PAGE
 -- ============================================================
 makeLabel(smContent, "WAVE", 8, PURPLE)
+local lastVoted = false
 makeToggle(smContent, "Auto Skip Wave", 28, false, function(v)
     SETTINGS.AutoSkip = v
 end)
@@ -549,39 +630,47 @@ end)
 -- ============================================================
 makeLabel(aimbotContent, "AIMBOT", 8, PURPLE)
 
-local aimbotToggleSync = makeToggle(aimbotContent, "Enabled", 28, false, function(v)
+aimbotToggleSync = makeToggle(aimbotContent, "Enabled", 28, false, function(v)
     SETTINGS.Enabled = v
-    fovCircle.Visible = v
+    fovCircle.Visible = v and expanded
 end)
 
 makeDivider(aimbotContent, 76)
-makeLabel(aimbotContent, "SETTINGS", 84, PURPLE)
+makeLabel(aimbotContent, "AIM SETTINGS", 84, PURPLE)
 
 makeSlider(aimbotContent, "FOV", 104, 50, 600, 200, 1, function(v)
     SETTINGS.FOV = v
     fovCircle.Radius = v
 end)
 
-makeSlider(aimbotContent, "Smoothness", 164, 1, 100, 30, 1, function(v)
+makeSlider(aimbotContent, "Smoothness %", 164, 1, 100, 30, 1, function(v)
     SETTINGS.Smoothness = v / 100
 end)
 
 makeDivider(aimbotContent, 224)
 makeLabel(aimbotContent, "TARGET", 232, PURPLE)
 
-makeDropdown(aimbotContent, "Target Part", 250, {"Head", "UpperTorso", "HumanoidRootPart"}, "Head", function(v)
+makeDropdown(aimbotContent, "Target Part", 250, {"Head","UpperTorso","HumanoidRootPart"}, "Head", function(v)
     SETTINGS.TargetPart = v
 end)
 
 makeDivider(aimbotContent, 298)
-makeLabel(aimbotContent, "EXTRAS", 306, PURPLE)
+makeLabel(aimbotContent, "KEYBIND", 306, PURPLE)
 
-makeToggle(aimbotContent, "Wall Check", 324, false, function(v)
+makeKeybind(aimbotContent, "Aimbot Toggle", 324, "Q", function(v)
+    SETTINGS.AimbotKey = v
+end)
+
+makeDivider(aimbotContent, 372)
+makeLabel(aimbotContent, "EXTRAS", 380, PURPLE)
+
+makeToggle(aimbotContent, "Wall Check", 398, false, function(v)
     SETTINGS.WallCheck = v
 end)
 
-makeToggle(aimbotContent, "Auto Shoot", 372, false, function(v)
+makeToggle(aimbotContent, "Auto Shoot", 446, false, function(v)
     SETTINGS.AutoShoot = v
+    if v then gunConfig = getGunConfig() end
 end)
 
 -- ============================================================
@@ -598,17 +687,6 @@ makeDivider(flyContent, 76)
 makeSlider(flyContent, "Fly Speed", 84, 10, 200, 40, 1, function(v)
     SETTINGS.FlySpeed = v
 end)
-
--- ============================================================
---  FOV CIRCLE
--- ============================================================
-local fovCircle = Drawing.new("Circle")
-fovCircle.Radius   = SETTINGS.FOV
-fovCircle.Color    = Color3.fromRGB(120, 40, 200)
-fovCircle.Thickness= 1.5
-fovCircle.Filled   = false
-fovCircle.NumSides = 64
-fovCircle.Visible  = false
 
 -- ============================================================
 --  TAB SWITCHING
@@ -631,6 +709,12 @@ local function switchTab(tab)
 
     local titles = {sm = "⚡ SM Hub", aimbot = "🎯 Aimbot", fly = "✈️ Fly"}
     titleText.Text = titles[tab]
+
+    if tab == "aimbot" then
+        fovCircle.Visible = SETTINGS.Enabled and expanded
+    else
+        fovCircle.Visible = false
+    end
 end
 
 tabSM.MouseButton1Click:Connect(function()     switchTab("sm") end)
@@ -647,7 +731,7 @@ minimizeBtn.MouseButton1Click:Connect(function()
         scrollFrame.Visible = true
         TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, WIN_W, 0, 440)}):Play()
         minimizeBtn.Text    = "—"
-        fovCircle.Visible   = SETTINGS.Enabled
+        fovCircle.Visible   = SETTINGS.Enabled and currentTab == "aimbot"
     else
         tabBar.Visible      = false
         scrollFrame.Visible = false
@@ -682,7 +766,6 @@ end)
 -- ============================================================
 --  AUTO SKIP LOOP
 -- ============================================================
-local lastVoted = false
 task.spawn(function()
     while task.wait(0.1) do
         if SETTINGS.AutoSkip then
@@ -738,29 +821,30 @@ local function getClosestZombie()
 end
 
 -- ============================================================
---  AUTO SHOOT  (Arg1 = Instance, Arg2 = gunName string, Arg3 = bulletId, Arg4 = rootPos, Arg5 = targetPos)
+--  AUTO SHOOT
 -- ============================================================
 local shootCooldown = false
-local FIRE_RATE     = 0.1
 
 local function internalShoot(targetPart)
     if shootCooldown then return end
+    if not gunConfig then
+        gunConfig = getGunConfig()
+        if not gunConfig then return end
+    end
     local char = player.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
-    local gunName = getGunName()
-    if not gunName then return end
 
     shootCooldown = true
     bulletHitRemote:FireServer(
-        targetPart,          -- Instance (the actual Part)
-        gunName,             -- string
-        nextBulletId(),      -- string
-        root.Position,       -- Vector3
-        targetPart.Position  -- Vector3
+        targetPart,           -- Instance (actual Part object)
+        gunConfig.name,       -- string gun name
+        nextBulletId(),       -- string bullet id
+        root.Position,        -- Vector3 player position
+        targetPart.Position   -- Vector3 target position
     )
-    task.delay(FIRE_RATE, function()
+    task.delay(gunConfig.fireRate or 0.1, function()
         shootCooldown = false
     end)
 end
@@ -771,7 +855,7 @@ end
 RunService.Heartbeat:Connect(function()
     fovCircle.Position = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
     if not SETTINGS.Enabled then return end
-    if SETTINGS.Fly then return end -- don't run aimbot while flying to avoid conflicts
+    if SETTINGS.Fly then return end -- prevent conflict with fly
 
     local target = getClosestZombie()
     if not target then return end
@@ -785,10 +869,8 @@ RunService.Heartbeat:Connect(function()
 
     mousemoverel(delta.X * SETTINGS.Smoothness, delta.Y * SETTINGS.Smoothness)
 
-    if SETTINGS.AutoShoot then
-        if delta.Magnitude < 20 then
-            internalShoot(target)
-        end
+    if SETTINGS.AutoShoot and delta.Magnitude < 20 then
+        internalShoot(target)
     end
 end)
 
