@@ -42,10 +42,12 @@ local SETTINGS = {
     InfStamina = false,
     Enabled    = false,
     FOV        = 200,
-    Smoothness = 0.12,
+    Smoothness = 0.05,
     TargetPart = "Head",
     WallCheck  = true,
     AutoShoot  = false,
+    Fly        = false,
+    FlySpeed   = 40,
 }
 
 -- ============================================================
@@ -135,6 +137,9 @@ player.CharacterAdded:Connect(function(char)
     smHumanoid = char:WaitForChild("Humanoid")
 end)
 
+-- Forward declare fly functions (defined later)
+local startFly, stopFly
+
 -- ============================================================
 --  WINDOW
 -- ============================================================
@@ -191,6 +196,40 @@ CameraGroup:AddSlider("CameraFOV", {
     end,
 })
 
+local MovGroup = Tabs.SMHub:AddRightGroupbox("Movement", "move")
+
+MovGroup:AddToggle("FlyToggle", {
+    Text    = "Fly",
+    Default = false,
+    Tooltip = "Toggle fly mode (WASD to move, Space/Shift for up/down)",
+    Callback = function(v)
+        SETTINGS.Fly = v
+        if v then startFly() else stopFly() end
+    end,
+})
+
+MovGroup:AddSlider("FlySpeedSlider", {
+    Text     = "Fly Speed",
+    Default  = 40,
+    Min      = 10,
+    Max      = 150,
+    Rounding = 0,
+    Callback = function(v)
+        SETTINGS.FlySpeed = v
+    end,
+})
+
+-- ============================================================
+--  FOV CIRCLE  (must be created before aimbot UI callbacks reference it)
+-- ============================================================
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius   = SETTINGS.FOV
+fovCircle.Color    = Color3.fromRGB(120, 40, 200)
+fovCircle.Thickness= 1.5
+fovCircle.Filled   = false
+fovCircle.NumSides = 64
+fovCircle.Visible  = false
+
 -- ============================================================
 --  AIMBOT TAB
 -- ============================================================
@@ -245,11 +284,11 @@ SettGroup:AddSlider("AimbotFOV", {
 -- Smoothness Slider
 SettGroup:AddSlider("Smoothness", {
     Text     = "Smoothness",
-    Default  = 12,
+    Default  = 5,
     Min      = 1,
-    Max      = 100,
+    Max      = 30,
     Rounding = 0,
-    Tooltip  = "Higher = slower/smoother aim (1 = instant snap)",
+    Tooltip  = "Lower = faster aim, Higher = smoother/slower (1 = near instant)",
     Callback = function(v)
         SETTINGS.Smoothness = v / 100
     end,
@@ -265,17 +304,6 @@ SettGroup:AddDropdown("TargetPart", {
         SETTINGS.TargetPart = v
     end,
 })
-
--- ============================================================
---  FOV CIRCLE
--- ============================================================
-local fovCircle = Drawing.new("Circle")
-fovCircle.Radius   = SETTINGS.FOV
-fovCircle.Color    = Color3.fromRGB(120, 40, 200)
-fovCircle.Thickness= 1.5
-fovCircle.Filled   = false
-fovCircle.NumSides = 64
-fovCircle.Visible  = false
 
 -- ============================================================
 --  UI SETTINGS TAB
@@ -387,29 +415,113 @@ end
 --  AUTO SHOOT
 -- ============================================================
 local shootCooldown = false
-local FIRE_RATE     = 0.1 -- seconds between shots, adjust if needed
+local FIRE_RATE     = 0.08
 
 local function internalShoot(targetPart)
     if shootCooldown then return end
-    local gunName = getCurrentGunName()
-    if not gunName then return end
+    -- Always get gun from character first, fallback to tracked name
     local char = player.Character
     if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    local gunName = (tool and tool.Name) or currentGunName
+    if not gunName then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
     shootCooldown = true
     bulletHitRemote:FireServer(
-        targetPart.Name,       -- Arg 1: part name (e.g. "Head")
-        gunName,               -- Arg 2: gun name (e.g. "Crimson Beast")
-        nextBulletId(),        -- Arg 3: bullet ID
-        root.Position,         -- Arg 4: shooter position (HRP pos)
-        targetPart.Position    -- Arg 5: target position
+        targetPart.Name,
+        gunName,
+        nextBulletId(),
+        root.Position,
+        targetPart.Position
     )
     task.delay(FIRE_RATE, function()
         shootCooldown = false
     end)
 end
+
+-- ============================================================
+--  FLY
+-- ============================================================
+local heldKeys = {}
+UserInputService.InputBegan:Connect(function(input)
+    heldKeys[input.KeyCode.Value] = true
+end)
+UserInputService.InputEnded:Connect(function(input)
+    heldKeys[input.KeyCode.Value] = false
+end)
+
+local flyConnection = nil
+
+startFly = function()
+    local char = player.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not root or not humanoid then return end
+    humanoid.PlatformStand = true
+
+    local bp = Instance.new("BodyPosition")
+    bp.Name     = "FlyBP"
+    bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    bp.Position = root.Position
+    bp.D        = 1000
+    bp.P        = 10000
+    bp.Parent   = root
+
+    local bg = Instance.new("BodyGyro")
+    bg.Name      = "FlyBG"
+    bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    bg.D         = 400
+    bg.CFrame    = camera.CFrame
+    bg.Parent    = root
+
+    if flyConnection then flyConnection:Disconnect() end
+    flyConnection = RunService.Heartbeat:Connect(function(dt)
+        if not SETTINGS.Fly then stopFly() return end
+        local c = player.Character
+        if not c then return end
+        local r = c:FindFirstChild("HumanoidRootPart")
+        if not r then return end
+        local flyBP = r:FindFirstChild("FlyBP")
+        local flyBG = r:FindFirstChild("FlyBG")
+        if not flyBP or not flyBG then return end
+        local speed   = SETTINGS.FlySpeed
+        local camCF   = camera.CFrame
+        local moveDir = Vector3.zero
+        -- W=87 S=83 A=65 D=68 Space=32 LeftShift=304
+        if heldKeys[87]  then moveDir += camCF.LookVector end
+        if heldKeys[83]  then moveDir -= camCF.LookVector end
+        if heldKeys[65]  then moveDir -= camCF.RightVector end
+        if heldKeys[68]  then moveDir += camCF.RightVector end
+        if heldKeys[32]  then moveDir += Vector3.new(0,1,0) end
+        if heldKeys[304] then moveDir -= Vector3.new(0,1,0) end
+        if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
+        flyBP.Position = r.Position + moveDir * speed * dt * 10
+        flyBG.CFrame   = camCF
+    end)
+end
+
+stopFly = function()
+    if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
+    local char = player.Character
+    if not char then return end
+    local root     = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if root then
+        local bp = root:FindFirstChild("FlyBP")
+        local bg = root:FindFirstChild("FlyBG")
+        if bp then bp:Destroy() end
+        if bg then bg:Destroy() end
+    end
+    if humanoid then humanoid.PlatformStand = false end
+end
+
+player.CharacterAdded:Connect(function()
+    SETTINGS.Fly = false
+    stopFly()
+end)
 
 -- ============================================================
 --  AIMBOT MAIN LOOP
