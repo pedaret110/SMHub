@@ -3,6 +3,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local waveRemote = ReplicatedStorage:WaitForChild("WaveRemote")
 local player = Players.LocalPlayer
@@ -75,7 +77,7 @@ minimizeBtn.Parent = titleBar
 
 -- Content (hidden by default)
 local content = Instance.new("Frame")
-content.Size = UDim2.new(1, 0, 0, 130)
+content.Size = UDim2.new(1, 0, 0, 220)
 content.Position = UDim2.new(0, 0, 0, 45)
 content.BackgroundTransparency = 1
 content.Visible = false
@@ -99,67 +101,143 @@ divider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 divider.BorderSizePixel = 0
 divider.Parent = content
 
-local sectionLabel = Instance.new("TextLabel")
-sectionLabel.Size = UDim2.new(1, -20, 0, 20)
-sectionLabel.Position = UDim2.new(0, 10, 0, 45)
-sectionLabel.BackgroundTransparency = 1
-sectionLabel.TextColor3 = Color3.fromRGB(120, 40, 200)
-sectionLabel.Text = "WAVE"
-sectionLabel.Font = Enum.Font.GothamBold
-sectionLabel.TextSize = 11
-sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
-sectionLabel.Parent = content
+-- WAVE Section
+local waveLabel = Instance.new("TextLabel")
+waveLabel.Size = UDim2.new(1, -20, 0, 20)
+waveLabel.Position = UDim2.new(0, 10, 0, 45)
+waveLabel.BackgroundTransparency = 1
+waveLabel.TextColor3 = Color3.fromRGB(120, 40, 200)
+waveLabel.Text = "WAVE"
+waveLabel.Font = Enum.Font.GothamBold
+waveLabel.TextSize = 11
+waveLabel.TextXAlignment = Enum.TextXAlignment.Left
+waveLabel.Parent = content
 
+-- Auto Skip Toggle
 local autoSkip = false
 local lastVoted = false
 
-local toggleFrame = Instance.new("Frame")
-toggleFrame.Size = UDim2.new(1, -20, 0, 45)
-toggleFrame.Position = UDim2.new(0, 10, 0, 68)
-toggleFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-toggleFrame.BorderSizePixel = 0
-toggleFrame.Parent = content
+local skipFrame = Instance.new("Frame")
+skipFrame.Size = UDim2.new(1, -20, 0, 45)
+skipFrame.Position = UDim2.new(0, 10, 0, 68)
+skipFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+skipFrame.BorderSizePixel = 0
+skipFrame.Parent = content
 
-Instance.new("UICorner", toggleFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", skipFrame).CornerRadius = UDim.new(0, 8)
 
-local toggleLabel = Instance.new("TextLabel")
-toggleLabel.Size = UDim2.new(1, -60, 1, 0)
-toggleLabel.Position = UDim2.new(0, 12, 0, 0)
-toggleLabel.BackgroundTransparency = 1
-toggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleLabel.Text = "Auto Skip Wave"
-toggleLabel.Font = Enum.Font.Gotham
-toggleLabel.TextSize = 13
-toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-toggleLabel.Parent = toggleFrame
+local skipLabel = Instance.new("TextLabel")
+skipLabel.Size = UDim2.new(1, -60, 1, 0)
+skipLabel.Position = UDim2.new(0, 12, 0, 0)
+skipLabel.BackgroundTransparency = 1
+skipLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+skipLabel.Text = "Auto Skip Wave"
+skipLabel.Font = Enum.Font.Gotham
+skipLabel.TextSize = 13
+skipLabel.TextXAlignment = Enum.TextXAlignment.Left
+skipLabel.Parent = skipFrame
 
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 44, 0, 24)
-toggleBtn.Position = UDim2.new(1, -54, 0.5, -12)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-toggleBtn.Text = ""
-toggleBtn.BorderSizePixel = 0
-toggleBtn.Parent = toggleFrame
+local skipBtn = Instance.new("TextButton")
+skipBtn.Size = UDim2.new(0, 44, 0, 24)
+skipBtn.Position = UDim2.new(1, -54, 0.5, -12)
+skipBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+skipBtn.Text = ""
+skipBtn.BorderSizePixel = 0
+skipBtn.Parent = skipFrame
 
-Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UICorner", skipBtn).CornerRadius = UDim.new(1, 0)
 
-local toggleCircle = Instance.new("Frame")
-toggleCircle.Size = UDim2.new(0, 18, 0, 18)
-toggleCircle.Position = UDim2.new(0, 3, 0.5, -9)
-toggleCircle.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
-toggleCircle.BorderSizePixel = 0
-toggleCircle.Parent = toggleBtn
+local skipCircle = Instance.new("Frame")
+skipCircle.Size = UDim2.new(0, 18, 0, 18)
+skipCircle.Position = UDim2.new(0, 3, 0.5, -9)
+skipCircle.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
+skipCircle.BorderSizePixel = 0
+skipCircle.Parent = skipBtn
 
-Instance.new("UICorner", toggleCircle).CornerRadius = UDim.new(1, 0)
+Instance.new("UICorner", skipCircle).CornerRadius = UDim.new(1, 0)
 
-toggleBtn.MouseButton1Click:Connect(function()
+skipBtn.MouseButton1Click:Connect(function()
     autoSkip = not autoSkip
     if autoSkip then
-        TweenService:Create(toggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(120, 40, 200)}):Play()
-        TweenService:Create(toggleCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 23, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        TweenService:Create(skipBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(120, 40, 200)}):Play()
+        TweenService:Create(skipCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 23, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
     else
-        TweenService:Create(toggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
-        TweenService:Create(toggleCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -9), BackgroundColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+        TweenService:Create(skipBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
+        TweenService:Create(skipCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -9), BackgroundColor3 = Color3.fromRGB(180, 180, 180)}):Play()
+    end
+end)
+
+-- PLAYER Section
+local divider2 = Instance.new("Frame")
+divider2.Size = UDim2.new(1, -20, 0, 1)
+divider2.Position = UDim2.new(0, 10, 0, 122)
+divider2.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+divider2.BorderSizePixel = 0
+divider2.Parent = content
+
+local playerLabel = Instance.new("TextLabel")
+playerLabel.Size = UDim2.new(1, -20, 0, 20)
+playerLabel.Position = UDim2.new(0, 10, 0, 132)
+playerLabel.BackgroundTransparency = 1
+playerLabel.TextColor3 = Color3.fromRGB(120, 40, 200)
+playerLabel.Text = "PLAYER"
+playerLabel.Font = Enum.Font.GothamBold
+playerLabel.TextSize = 11
+playerLabel.TextXAlignment = Enum.TextXAlignment.Left
+playerLabel.Parent = content
+
+-- Infinite Stamina Toggle
+local infStamina = false
+local staminaBar = player.PlayerGui:WaitForChild("SprintGui").Frame.Frame
+local originalColor = Color3.new(0.313726, 0.784314, 0.470588)
+
+local staminaFrame = Instance.new("Frame")
+staminaFrame.Size = UDim2.new(1, -20, 0, 45)
+staminaFrame.Position = UDim2.new(0, 10, 0, 155)
+staminaFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+staminaFrame.BorderSizePixel = 0
+staminaFrame.Parent = content
+
+Instance.new("UICorner", staminaFrame).CornerRadius = UDim.new(0, 8)
+
+local staminaLabel = Instance.new("TextLabel")
+staminaLabel.Size = UDim2.new(1, -60, 1, 0)
+staminaLabel.Position = UDim2.new(0, 12, 0, 0)
+staminaLabel.BackgroundTransparency = 1
+staminaLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+staminaLabel.Text = "Infinite Stamina"
+staminaLabel.Font = Enum.Font.Gotham
+staminaLabel.TextSize = 13
+staminaLabel.TextXAlignment = Enum.TextXAlignment.Left
+staminaLabel.Parent = staminaFrame
+
+local staminaBtn = Instance.new("TextButton")
+staminaBtn.Size = UDim2.new(0, 44, 0, 24)
+staminaBtn.Position = UDim2.new(1, -54, 0.5, -12)
+staminaBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+staminaBtn.Text = ""
+staminaBtn.BorderSizePixel = 0
+staminaBtn.Parent = staminaFrame
+
+Instance.new("UICorner", staminaBtn).CornerRadius = UDim.new(1, 0)
+
+local staminaCircle = Instance.new("Frame")
+staminaCircle.Size = UDim2.new(0, 18, 0, 18)
+staminaCircle.Position = UDim2.new(0, 3, 0.5, -9)
+staminaCircle.BackgroundColor3 = Color3.fromRGB(180, 180, 180)
+staminaCircle.BorderSizePixel = 0
+staminaCircle.Parent = staminaBtn
+
+Instance.new("UICorner", staminaCircle).CornerRadius = UDim.new(1, 0)
+
+staminaBtn.MouseButton1Click:Connect(function()
+    infStamina = not infStamina
+    if infStamina then
+        TweenService:Create(staminaBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(120, 40, 200)}):Play()
+        TweenService:Create(staminaCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 23, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+    else
+        TweenService:Create(staminaBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
+        TweenService:Create(staminaCircle, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -9), BackgroundColor3 = Color3.fromRGB(180, 180, 180)}):Play()
     end
 end)
 
@@ -174,7 +252,7 @@ minimizeBtn.MouseButton1Click:Connect(function()
         minimizeBtn.Text = "+"
     else
         content.Visible = true
-        TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 175)}):Play()
+        TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 265)}):Play()
         minimizeBtn.Text = "—"
     end
 end)
@@ -221,6 +299,35 @@ task.spawn(function()
                 task.wait(1)
                 lastVoted = false
             end
+        end
+    end
+end)
+
+-- Infinite Stamina Loop
+local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+
+player.CharacterAdded:Connect(function(char)
+    humanoid = char:WaitForChild("Humanoid")
+end)
+
+local oldIndex
+oldIndex = hookmetamethod(game, "__newindex", function(self, key, value)
+    if infStamina and self == staminaBar then
+        if key == "Size" then
+            return oldIndex(self, key, UDim2.new(1, 0, 1, 0))
+        end
+        if key == "BackgroundColor3" then
+            return oldIndex(self, key, originalColor)
+        end
+    end
+    return oldIndex(self, key, value)
+end)
+
+RunService.Heartbeat:Connect(function()
+    if infStamina and humanoid then
+        local shifting = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+        if shifting and humanoid.WalkSpeed < 28.8 then
+            humanoid.WalkSpeed = 28.8
         end
     end
 end)
