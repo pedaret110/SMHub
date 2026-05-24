@@ -1,6 +1,5 @@
 -- ============================================================
---  SM Hub Combined  |  Wave + Stamina + Fly + Aimbot + AutoShoot
---  Fixed: TargetPart respected, wall check from HRP, no off-screen issues
+--  SM Hub  |  Wave + Stamina + Fly + Aimbot
 -- ============================================================
 
 local Players           = game:GetService("Players")
@@ -9,35 +8,31 @@ local TweenService      = game:GetService("TweenService")
 local RunService        = game:GetService("RunService")
 local UserInputService  = game:GetService("UserInputService")
 
-local player  = Players.LocalPlayer
-local camera  = workspace.CurrentCamera
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
 
-local waveRemote      = ReplicatedStorage:WaitForChild("WaveRemote")
-local bulletHitRemote = ReplicatedStorage:WaitForChild("BulletHit")
-local gunConfigRemote = ReplicatedStorage:WaitForChild("GetGunConfig")
-local zombieFolder    = workspace:WaitForChild("Zombies")
+local waveRemote   = ReplicatedStorage:WaitForChild("WaveRemote")
+local zombieFolder = workspace:WaitForChild("Zombies")
 
 -- ============================================================
 --  SETTINGS
 -- ============================================================
 local SETTINGS = {
-    AutoSkip        = false,
-    InfStamina      = false,
-    Fly             = false,
-    Enabled         = false,
-    Smoothness      = 0.12,
-    TargetPart      = "Head",
-    AutoShoot       = false,
-    WallCheck       = true,
-    ActivationMode  = "Hold",  -- "Hold" or "Toggle"
-    HoldKey         = Enum.KeyCode.Q,
+    AutoSkip       = false,
+    InfStamina     = false,
+    Enabled        = false,
+    Smoothness     = 0.12,
+    TargetPart     = "Head",
+    ActivationMode = "Hold",
+    HoldKey        = Enum.KeyCode.Q,
+    WallCheck      = true,
 }
 
 -- ============================================================
---  TOGGLE STATE + KEY HANDLING
+--  TOGGLE STATE
 -- ============================================================
 local toggleActive    = false
-local aimbotToggleSync = nil  -- set after UI builds
+local aimbotToggleSync = nil
 
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
@@ -49,47 +44,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
 end)
 
 -- ============================================================
---  GUN CONFIG
--- ============================================================
-local bulletCount = 0
-local function nextBulletId()
-    bulletCount += 1
-    return tostring(player.UserId) .. "_" .. tostring(bulletCount)
-end
-
-local gunConfig = nil
-local function getGunConfig()
-    local char = player.Character
-    if not char then return nil end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then return nil end
-    local ok, result = pcall(function()
-        return gunConfigRemote:InvokeServer(tool.Name)
-    end)
-    if ok and result then
-        result.name = tool.Name
-        return result
-    end
-    return nil
-end
-
-local function onCharAdded(char)
-    char.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then task.wait(0.1); gunConfig = getGunConfig() end
-    end)
-    char.ChildRemoved:Connect(function(child)
-        if child:IsA("Tool") then gunConfig = nil end
-    end)
-end
-if player.Character then onCharAdded(player.Character) end
-player.CharacterAdded:Connect(function(char)
-    onCharAdded(char)
-    SETTINGS.Enabled = false
-    toggleActive = false
-    if aimbotToggleSync then aimbotToggleSync(false) end
-end)
-
--- ============================================================
 --  RAYCAST FILTER
 -- ============================================================
 local rayParams = RaycastParams.new()
@@ -98,7 +52,12 @@ local function updateRayFilter(char)
     rayParams.FilterDescendantsInstances = {char, zombieFolder}
 end
 if player.Character then updateRayFilter(player.Character) end
-player.CharacterAdded:Connect(updateRayFilter)
+player.CharacterAdded:Connect(function(char)
+    updateRayFilter(char)
+    SETTINGS.Enabled = false
+    toggleActive = false
+    if aimbotToggleSync then aimbotToggleSync(false) end
+end)
 
 -- ============================================================
 --  STAMINA HOOK
@@ -122,9 +81,9 @@ end)
 -- ============================================================
 --  FLY
 -- ============================================================
-local flying   = false
-local bodyVel  = nil
-local bodyGyro = nil
+local flying    = false
+local bodyVel   = nil
+local bodyGyro  = nil
 local FLY_SPEED = 60
 
 local function startFly()
@@ -132,11 +91,11 @@ local function startFly()
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChild("Humanoid")
     if not hrp or not hum then return end
-    hum.PlatformStand = true
-    bodyVel           = Instance.new("BodyVelocity")
-    bodyVel.Velocity  = Vector3.zero
-    bodyVel.MaxForce  = Vector3.new(1e5,1e5,1e5)
-    bodyVel.Parent    = hrp
+    hum.PlatformStand  = true
+    bodyVel            = Instance.new("BodyVelocity")
+    bodyVel.Velocity   = Vector3.zero
+    bodyVel.MaxForce   = Vector3.new(1e5,1e5,1e5)
+    bodyVel.Parent     = hrp
     bodyGyro           = Instance.new("BodyGyro")
     bodyGyro.MaxTorque = Vector3.new(1e5,1e5,1e5)
     bodyGyro.P         = 1e4
@@ -164,12 +123,12 @@ RunService.Heartbeat:Connect(function()
     local char = player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    local camCF = camera.CFrame
-    local move  = Vector3.zero
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += camCF.LookVector  end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= camCF.LookVector  end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= camCF.RightVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += camCF.RightVector end
+    local move = Vector3.zero
+    local cf   = camera.CFrame
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move += cf.LookVector  end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move -= cf.LookVector  end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move -= cf.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move += cf.RightVector end
     if move.Magnitude > 0 then
         bodyVel.Velocity = move.Unit * FLY_SPEED
         bodyGyro.CFrame  = CFrame.new(hrp.Position, hrp.Position + move)
@@ -180,7 +139,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
---  GUI SETUP
+--  GUI
 -- ============================================================
 local playerGui = player.PlayerGui
 for _, n in ipairs({"SMHub","AimbotUI","CombinedHub"}) do
@@ -188,10 +147,10 @@ for _, n in ipairs({"SMHub","AimbotUI","CombinedHub"}) do
 end
 
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name            = "CombinedHub"
-screenGui.ResetOnSpawn    = false
-screenGui.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
-screenGui.Parent          = playerGui
+screenGui.Name           = "CombinedHub"
+screenGui.ResetOnSpawn   = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent         = playerGui
 
 local PURPLE = Color3.fromRGB(120,40,200)
 local DARK   = Color3.fromRGB(18,18,18)
@@ -224,12 +183,11 @@ titleBar.BorderSizePixel  = 0
 titleBar.Parent           = main
 Instance.new("UICorner",titleBar).CornerRadius = UDim.new(0,12)
 
-local titleFix = Instance.new("Frame")
-titleFix.Size             = UDim2.new(1,0,0.5,0)
-titleFix.Position         = UDim2.new(0,0,0.5,0)
-titleFix.BackgroundColor3 = PURPLE
-titleFix.BorderSizePixel  = 0
-titleFix.Parent           = titleBar
+Instance.new("Frame", titleBar).Size             = UDim2.new(1,0,0.5,0)
+local tf = titleBar:FindFirstChildOfClass("Frame")
+tf.Position         = UDim2.new(0,0,0.5,0)
+tf.BackgroundColor3 = PURPLE
+tf.BorderSizePixel  = 0
 
 local titleText = Instance.new("TextLabel")
 titleText.Size                   = UDim2.new(1,-50,1,0)
@@ -252,7 +210,7 @@ minimizeBtn.Font                   = Enum.Font.GothamBold
 minimizeBtn.TextSize               = 16
 minimizeBtn.Parent                 = titleBar
 
--- Tab bar
+-- Tabs
 local tabBar = Instance.new("Frame")
 tabBar.Size             = UDim2.new(1,-20,0,32)
 tabBar.Position         = UDim2.new(0,10,0,50)
@@ -279,7 +237,6 @@ end
 local tabSM     = makeTabBtn("⚡ SM Hub", 0, true)
 local tabAimbot = makeTabBtn("🎯 Aimbot", 0.5, false)
 
--- Scroll frame
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Size                   = UDim2.new(1,0,0,340)
 scrollFrame.Position               = UDim2.new(0,0,0,88)
@@ -291,7 +248,7 @@ scrollFrame.Visible                = false
 scrollFrame.Parent                 = main
 
 -- ============================================================
---  UI HELPER FUNCTIONS
+--  UI HELPERS
 -- ============================================================
 local function makeLabel(p, text, y, color)
     local l = Instance.new("TextLabel")
@@ -365,7 +322,6 @@ local function makeToggle(p, text, y, default, cb)
     b.MouseButton1Click:Connect(function()
         state = not state; setV(state); cb(state)
     end)
-    -- returns a sync function so external code can update the toggle visually
     return function(v) state = v; setV(v) end
 end
 
@@ -469,7 +425,7 @@ local function makeDropdown(p, text, y, options, default, cb)
     Instance.new("UICorner",b).CornerRadius = UDim.new(0,6)
 
     b.MouseButton1Click:Connect(function()
-        idx   = idx % #options + 1
+        idx = idx % #options + 1
         b.Text = options[idx]
         cb(options[idx])
     end)
@@ -509,7 +465,7 @@ local function makeKeybind(p, text, y, default, cb)
     Instance.new("UICorner",b).CornerRadius = UDim.new(0,6)
 
     b.MouseButton1Click:Connect(function()
-        listening = true
+        listening          = true
         b.Text             = "..."
         b.BackgroundColor3 = Color3.fromRGB(200,150,0)
     end)
@@ -528,7 +484,7 @@ end
 --  PAGE CONTAINERS
 -- ============================================================
 local SM_CANVAS     = 340
-local AIMBOT_CANVAS = 430
+local AIMBOT_CANVAS = 310
 
 local smContent = Instance.new("Frame")
 smContent.Size                = UDim2.new(1,0,0,SM_CANVAS)
@@ -602,36 +558,23 @@ makeDropdown(aimbotContent, "Mode", 312, {"Hold","Toggle"}, "Hold", function(v)
     toggleActive = false
 end)
 
-makeDivider(aimbotContent, 360)
-makeLabel(aimbotContent, "EXTRAS", 368, PURPLE)
-makeToggle(aimbotContent, "Wall Check", 386, true, function(v)
-    SETTINGS.WallCheck = v
-end)
-makeToggle(aimbotContent, "Auto Shoot", 434, false, function(v)
-    SETTINGS.AutoShoot = v
-    if v then gunConfig = getGunConfig() end
-end)
-
 -- ============================================================
 --  TAB SWITCHING
 -- ============================================================
-local currentTab = "sm"
-
 local function switchTab(tab)
-    currentTab = tab
     if tab == "sm" then
         smContent.Visible      = true
         aimbotContent.Visible  = false
         scrollFrame.CanvasSize = UDim2.new(0,0,0,SM_CANVAS)
-        TweenService:Create(tabSM,    TweenInfo.new(0.15), {BackgroundColor3=PURPLE}):Play()
-        TweenService:Create(tabAimbot,TweenInfo.new(0.15), {BackgroundColor3=CARD}):Play()
+        TweenService:Create(tabSM,    TweenInfo.new(0.15),{BackgroundColor3=PURPLE}):Play()
+        TweenService:Create(tabAimbot,TweenInfo.new(0.15),{BackgroundColor3=CARD}):Play()
         titleText.Text = "⚡ SM Hub"
     else
         smContent.Visible      = false
         aimbotContent.Visible  = true
         scrollFrame.CanvasSize = UDim2.new(0,0,0,AIMBOT_CANVAS)
-        TweenService:Create(tabSM,    TweenInfo.new(0.15), {BackgroundColor3=CARD}):Play()
-        TweenService:Create(tabAimbot,TweenInfo.new(0.15), {BackgroundColor3=PURPLE}):Play()
+        TweenService:Create(tabSM,    TweenInfo.new(0.15),{BackgroundColor3=CARD}):Play()
+        TweenService:Create(tabAimbot,TweenInfo.new(0.15),{BackgroundColor3=PURPLE}):Play()
         titleText.Text = "🎯 Aimbot"
     end
 end
@@ -640,7 +583,7 @@ tabSM.MouseButton1Click:Connect(function()     switchTab("sm") end)
 tabAimbot.MouseButton1Click:Connect(function() switchTab("aimbot") end)
 
 -- ============================================================
---  MINIMIZE / EXPAND
+--  MINIMIZE
 -- ============================================================
 local expanded = false
 minimizeBtn.MouseButton1Click:Connect(function()
@@ -648,12 +591,12 @@ minimizeBtn.MouseButton1Click:Connect(function()
     if expanded then
         tabBar.Visible      = true
         scrollFrame.Visible = true
-        TweenService:Create(main, TweenInfo.new(0.3), {Size=UDim2.new(0,WIN_W,0,440)}):Play()
+        TweenService:Create(main,TweenInfo.new(0.3),{Size=UDim2.new(0,WIN_W,0,440)}):Play()
         minimizeBtn.Text    = "—"
     else
         tabBar.Visible      = false
         scrollFrame.Visible = false
-        TweenService:Create(main, TweenInfo.new(0.3), {Size=UDim2.new(0,WIN_W,0,45)}):Play()
+        TweenService:Create(main,TweenInfo.new(0.3),{Size=UDim2.new(0,WIN_W,0,45)}):Play()
         minimizeBtn.Text    = "+"
     end
 end)
@@ -664,9 +607,7 @@ end)
 local dragging, dragStart, startPos
 titleBar.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging  = true
-        dragStart = i.Position
-        startPos  = main.Position
+        dragging = true; dragStart = i.Position; startPos = main.Position
     end
 end)
 titleBar.InputChanged:Connect(function(i)
@@ -715,7 +656,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
---  AIMBOT LOGIC
+--  AIMBOT
 -- ============================================================
 local function getClosestZombie()
     local closest, closestDist = nil, math.huge
@@ -727,13 +668,10 @@ local function getClosestZombie()
         local hum = zombie:FindFirstChild("Humanoid")
         local tgt = zombie:FindFirstChild(SETTINGS.TargetPart)
         if not hum or not tgt or hum.Health <= 0 then continue end
-
-        -- Wall check from HRP (not camera) so flying works correctly
         if SETTINGS.WallCheck then
             local result = workspace:Raycast(hrp.Position, tgt.Position - hrp.Position, rayParams)
             if result then continue end
         end
-
         local dist = (hrp.Position - tgt.Position).Magnitude
         if dist < closestDist then
             closestDist = dist
@@ -743,81 +681,26 @@ local function getClosestZombie()
     return closest
 end
 
--- ============================================================
---  AUTO SHOOT LOGIC
--- ============================================================
-local shootCooldown = false
-
-local function internalShoot()
-    if shootCooldown then return end
-    if not gunConfig then gunConfig = getGunConfig() end
-    if not gunConfig then return end
-    local char = player.Character; if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart"); if not root then return end
-
-    shootCooldown = true
-    local bulletId = nextBulletId()
-    local piercing = gunConfig.piercing or 1
-    local hit      = 0
-
-    for _, zombie in ipairs(zombieFolder:GetChildren()) do
-        if hit >= piercing then break end
-        local hum = zombie:FindFirstChild("Humanoid")
-        -- Respect TargetPart setting, fallback to HumanoidRootPart
-        local tgt = zombie:FindFirstChild(SETTINGS.TargetPart) or zombie:FindFirstChild("HumanoidRootPart")
-        if not hum or not tgt or hum.Health <= 0 then continue end
-
-        local zombiePos = tgt.Position
-
-        -- Wall check from HRP so elevation doesn't block hits
-        if SETTINGS.WallCheck then
-            local result = workspace:Raycast(root.Position, zombiePos - root.Position, rayParams)
-            if result then continue end
-        end
-
-        -- Fake origin at zombie's Y so server raycast validation passes
-        local fakeOrigin = Vector3.new(root.Position.X, zombiePos.Y, root.Position.Z)
-        local direction  = (zombiePos - fakeOrigin).Unit
-        local endpoint   = zombiePos + direction * 5
-
-        bulletHitRemote:FireServer(tgt, gunConfig.name, bulletId, fakeOrigin, endpoint)
-        hit += 1
-    end
-
-    task.delay(gunConfig.fireRate or 0.1, function()
-        shootCooldown = false
-    end)
-end
-
--- ============================================================
---  MAIN AIMBOT HEARTBEAT
--- ============================================================
 RunService.Heartbeat:Connect(function()
     if not SETTINGS.Enabled then return end
 
     local shouldAim = (SETTINGS.ActivationMode == "Hold" and UserInputService:IsKeyDown(SETTINGS.HoldKey))
                    or (SETTINGS.ActivationMode == "Toggle" and toggleActive)
-
-    if not shouldAim and not SETTINGS.AutoShoot then return end
+    if not shouldAim then return end
 
     local target = getClosestZombie()
+    if not target then return end
 
-    if target and shouldAim then
-        local camPos    = camera.CFrame.Position
-        local targetPos = target.Position
+    local camPos    = camera.CFrame.Position
+    local targetPos = target.Position
 
-        if SETTINGS.Smoothness <= 0.002 then
-            camera.CFrame = CFrame.new(camPos, targetPos)
-        else
-            local cur        = camera.CFrame.LookVector
-            local des        = (targetPos - camPos).Unit
-            local smoothed   = cur:Lerp(des, SETTINGS.Smoothness)
-            camera.CFrame    = CFrame.new(camPos, camPos + smoothed)
-        end
-    end
-
-    if SETTINGS.AutoShoot then
-        internalShoot()
+    if SETTINGS.Smoothness <= 0.002 then
+        camera.CFrame = CFrame.new(camPos, targetPos)
+    else
+        local cur     = camera.CFrame.LookVector
+        local des     = (targetPos - camPos).Unit
+        local smooth  = cur:Lerp(des, SETTINGS.Smoothness)
+        camera.CFrame = CFrame.new(camPos, camPos + smooth)
     end
 end)
 
