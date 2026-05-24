@@ -7,7 +7,6 @@ local TweenService = game:GetService("TweenService")
 local waveRemote = ReplicatedStorage:WaitForChild("WaveRemote")
 local player = Players.LocalPlayer
 
--- Remove old GUI if exists
 if player.PlayerGui:FindFirstChild("SMHub") then
     player.PlayerGui.SMHub:Destroy()
 end
@@ -18,12 +17,12 @@ screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = player.PlayerGui
 
--- Main Frame
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 240, 0, 300)
+main.Size = UDim2.new(0, 240, 0, 45)
 main.Position = UDim2.new(0, 20, 0.3, 0)
 main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
 main.BorderSizePixel = 0
+main.ClipsDescendants = true
 main.Parent = screenGui
 
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
@@ -49,7 +48,6 @@ titleBar.Parent = main
 
 Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
 
--- Fix bottom corners of title bar
 local titleFix = Instance.new("Frame")
 titleFix.Size = UDim2.new(1, 0, 0.5, 0)
 titleFix.Position = UDim2.new(0, 0, 0.5, 0)
@@ -57,9 +55,8 @@ titleFix.BackgroundColor3 = Color3.fromRGB(120, 40, 200)
 titleFix.BorderSizePixel = 0
 titleFix.Parent = titleBar
 
--- Title Text
 local titleText = Instance.new("TextLabel")
-titleText.Size = UDim2.new(1, -10, 1, 0)
+titleText.Size = UDim2.new(1, -50, 1, 0)
 titleText.Position = UDim2.new(0, 10, 0, 0)
 titleText.BackgroundTransparency = 1
 titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -69,37 +66,55 @@ titleText.TextSize = 16
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = titleBar
 
+-- Minimize Button
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+minimizeBtn.Position = UDim2.new(1, -35, 0, 7)
+minimizeBtn.BackgroundTransparency = 1
+minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeBtn.Text = "+"
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 16
+minimizeBtn.Parent = titleBar
+
+-- Content Frame (everything below title)
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, 0, 1, -45)
+content.Position = UDim2.new(0, 0, 0, 45)
+content.BackgroundTransparency = 1
+content.Parent = main
+
 -- Subtitle
 local subtitle = Instance.new("TextLabel")
 subtitle.Size = UDim2.new(1, -10, 0, 20)
-subtitle.Position = UDim2.new(0, 10, 0, 50)
+subtitle.Position = UDim2.new(0, 10, 0, 8)
 subtitle.BackgroundTransparency = 1
 subtitle.TextColor3 = Color3.fromRGB(150, 150, 150)
 subtitle.Text = "Survive Monster [Beta]"
 subtitle.Font = Enum.Font.Gotham
 subtitle.TextSize = 11
 subtitle.TextXAlignment = Enum.TextXAlignment.Left
-subtitle.Parent = main
+subtitle.Parent = content
 
 -- Divider
 local divider = Instance.new("Frame")
 divider.Size = UDim2.new(1, -20, 0, 1)
-divider.Position = UDim2.new(0, 10, 0, 78)
+divider.Position = UDim2.new(0, 10, 0, 35)
 divider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 divider.BorderSizePixel = 0
-divider.Parent = main
+divider.Parent = content
 
 -- Section Label
 local sectionLabel = Instance.new("TextLabel")
 sectionLabel.Size = UDim2.new(1, -20, 0, 20)
-sectionLabel.Position = UDim2.new(0, 10, 0, 88)
+sectionLabel.Position = UDim2.new(0, 10, 0, 45)
 sectionLabel.BackgroundTransparency = 1
 sectionLabel.TextColor3 = Color3.fromRGB(120, 40, 200)
 sectionLabel.Text = "WAVE"
 sectionLabel.Font = Enum.Font.GothamBold
 sectionLabel.TextSize = 11
 sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
-sectionLabel.Parent = main
+sectionLabel.Parent = content
 
 -- Auto Skip Toggle
 local autoSkip = false
@@ -107,10 +122,10 @@ local lastVoted = false
 
 local toggleFrame = Instance.new("Frame")
 toggleFrame.Size = UDim2.new(1, -20, 0, 45)
-toggleFrame.Position = UDim2.new(0, 10, 0, 112)
+toggleFrame.Position = UDim2.new(0, 10, 0, 68)
 toggleFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
 toggleFrame.BorderSizePixel = 0
-toggleFrame.Parent = main
+toggleFrame.Parent = content
 
 Instance.new("UICorner", toggleFrame).CornerRadius = UDim.new(0, 8)
 
@@ -155,25 +170,16 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Minimize Button
-local minimizeBtn = Instance.new("TextButton")
-minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-minimizeBtn.Position = UDim2.new(1, -35, 0, 7)
-minimizeBtn.BackgroundTransparency = 1
-minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-minimizeBtn.Text = "—"
-minimizeBtn.Font = Enum.Font.GothamBold
-minimizeBtn.TextSize = 16
-minimizeBtn.Parent = titleBar
+-- Minimize Logic
+local minimized = true
 
-local minimized = false
 minimizeBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
         TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 45)}):Play()
         minimizeBtn.Text = "+"
     else
-        TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 300)}):Play()
+        TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 175)}):Play()
         minimizeBtn.Text = "—"
     end
 end)
