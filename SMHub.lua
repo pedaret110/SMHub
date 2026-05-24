@@ -29,19 +29,18 @@ local SETTINGS = {
     FOV          = 200,
     Smoothness   = 0.12,
     TargetPart   = "Head",
-    AimbotKey    = 81,
     AutoShoot    = false,
     WallCheck    = true,
     PriorityMode = "Screen",
 }
 
 -- ============================================================
---  RAW KEY TRACKING
+--  RAW KEY TRACKING  (Q = 81 toggles aimbot)
 -- ============================================================
 local heldKeys = {}
 UserInputService.InputBegan:Connect(function(input, gpe)
     heldKeys[input.KeyCode.Value] = true
-    if not gpe and input.KeyCode.Value == SETTINGS.AimbotKey then
+    if not gpe and input.KeyCode.Value == 81 then
         SETTINGS.Enabled = not SETTINGS.Enabled
         if aimbotToggleSync then aimbotToggleSync(SETTINGS.Enabled) end
     end
@@ -129,7 +128,7 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ============================================================
---  FLY (defined early so UI can reference it)
+--  FLY
 -- ============================================================
 local flying   = false
 local bodyVel  = nil
@@ -500,62 +499,11 @@ local function makeDropdown(parent, labelText, yPos, options, default, callback)
     end)
 end
 
-local function makeKeybind(parent, labelText, yPos, defaultName, callback)
-    local frame = Instance.new("Frame")
-    frame.Size            = UDim2.new(1, -20, 0, 40)
-    frame.Position        = UDim2.new(0, 10, 0, yPos)
-    frame.BackgroundColor3= CARD
-    frame.BorderSizePixel = 0
-    frame.Parent          = parent
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size             = UDim2.new(0.5, 0, 1, 0)
-    lbl.Position         = UDim2.new(0, 12, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.TextColor3       = Color3.fromRGB(255, 255, 255)
-    lbl.Text             = labelText
-    lbl.Font             = Enum.Font.Gotham
-    lbl.TextSize         = 13
-    lbl.TextXAlignment   = Enum.TextXAlignment.Left
-    lbl.Parent           = frame
-
-    local listening = false
-    local btn = Instance.new("TextButton")
-    btn.Size             = UDim2.new(0, 100, 0, 26)
-    btn.Position         = UDim2.new(1, -110, 0.5, -13)
-    btn.BackgroundColor3 = PURPLE
-    btn.TextColor3       = Color3.fromRGB(255, 255, 255)
-    btn.Text             = defaultName
-    btn.Font             = Enum.Font.GothamBold
-    btn.TextSize         = 12
-    btn.BorderSizePixel  = 0
-    btn.Parent           = frame
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-    btn.MouseButton1Click:Connect(function()
-        listening    = true
-        btn.Text     = "..."
-        btn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
-    end)
-    UserInputService.InputBegan:Connect(function(input)
-        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
-            listening = false
-            local name = input.KeyCode ~= Enum.KeyCode.Unknown
-                and input.KeyCode.Name
-                or "Key" .. tostring(input.KeyCode.Value)
-            btn.Text             = name
-            btn.BackgroundColor3 = PURPLE
-            callback(input.KeyCode.Value)
-        end
-    end)
-end
-
 -- ============================================================
 --  PAGE CONTAINERS
 -- ============================================================
-local SM_CANVAS     = 380
-local AIMBOT_CANVAS = 570
+local SM_CANVAS     = 330
+local AIMBOT_CANVAS = 480  -- shorter now keybind row removed
 
 local smContent = Instance.new("Frame")
 smContent.Size            = UDim2.new(1, 0, 0, SM_CANVAS)
@@ -569,7 +517,7 @@ aimbotContent.Visible         = false
 aimbotContent.Parent          = scrollFrame
 
 -- ============================================================
---  SM HUB PAGE CONTENT
+--  SM HUB PAGE
 -- ============================================================
 makeLabel(smContent, "WAVE", 8, PURPLE)
 
@@ -600,11 +548,11 @@ makeSlider(smContent, "Field of View", 256, 70, 120, 70, 1, function(v)
 end)
 
 -- ============================================================
---  AIMBOT PAGE CONTENT
+--  AIMBOT PAGE
 -- ============================================================
 makeLabel(aimbotContent, "AIMBOT", 8, PURPLE)
 
-aimbotToggleSync = makeToggle(aimbotContent, "Enabled", 28, false, function(v)
+aimbotToggleSync = makeToggle(aimbotContent, "Enabled  [Q]", 28, false, function(v)
     SETTINGS.Enabled = v
     fovCircle.Visible = v and expanded
 end)
@@ -632,19 +580,13 @@ makeDropdown(aimbotContent, "Priority", 298, {"Screen", "Distance"}, "Screen", f
 end)
 
 makeDivider(aimbotContent, 346)
-makeLabel(aimbotContent, "KEYBIND", 354, PURPLE)
+makeLabel(aimbotContent, "EXTRAS", 354, PURPLE)
 
-makeKeybind(aimbotContent, "Aimbot Key", 372, "Q", function(v)
-    SETTINGS.AimbotKey = v
-end)
-
-makeDivider(aimbotContent, 420)
-makeLabel(aimbotContent, "EXTRAS", 428, PURPLE)
-
-makeToggle(aimbotContent, "Wall Check", 446, true, function(v)
+makeToggle(aimbotContent, "Wall Check", 372, true, function(v)
     SETTINGS.WallCheck = v
 end)
-makeToggle(aimbotContent, "Auto Shoot", 494, false, function(v)
+
+makeToggle(aimbotContent, "Auto Shoot", 420, false, function(v)
     SETTINGS.AutoShoot = v
     if v then gunConfig = getGunConfig() end
 end)
@@ -663,7 +605,7 @@ fovCircle.Visible  = false
 -- ============================================================
 --  TAB SWITCHING
 -- ============================================================
-local expanded = false
+local expanded   = false
 local currentTab = "sm"
 
 local function switchTab(tab)
@@ -694,19 +636,19 @@ tabAimbot.MouseButton1Click:Connect(function() switchTab("aimbot") end)
 minimizeBtn.MouseButton1Click:Connect(function()
     expanded = not expanded
     if expanded then
-        tabBar.Visible       = true
-        scrollFrame.Visible  = true
+        tabBar.Visible      = true
+        scrollFrame.Visible = true
         TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, WIN_W, 0, 440)}):Play()
-        minimizeBtn.Text     = "—"
+        minimizeBtn.Text    = "—"
         if currentTab == "aimbot" then
             fovCircle.Visible = SETTINGS.Enabled
         end
     else
-        tabBar.Visible       = false
-        scrollFrame.Visible  = false
+        tabBar.Visible      = false
+        scrollFrame.Visible = false
         TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, WIN_W, 0, 45)}):Play()
-        minimizeBtn.Text     = "+"
-        fovCircle.Visible    = false
+        minimizeBtn.Text    = "+"
+        fovCircle.Visible   = false
     end
 end)
 
@@ -748,7 +690,6 @@ task.spawn(function()
             if found and not lastVoted then
                 lastVoted = true
                 waveRemote:FireServer("VoteSkip")
-                print("Voted to skip wave!")
                 task.wait(1)
                 lastVoted = false
             end
@@ -792,11 +733,9 @@ local function getClosestZombie()
         local dist
 
         if SETTINGS.PriorityMode == "Distance" then
-            if hrp then
-                dist = (hrp.Position - target.Position).Magnitude
-            else
-                dist = (camPos - target.Position).Magnitude
-            end
+            dist = hrp
+                and (hrp.Position - target.Position).Magnitude
+                or  (camPos - target.Position).Magnitude
         else
             local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
             if not onScreen then continue end
@@ -807,7 +746,7 @@ local function getClosestZombie()
 
         if dist < closestDist then
             closestDist = dist
-            closest = target
+            closest     = target
         end
     end
     return closest
@@ -815,9 +754,13 @@ end
 
 -- ============================================================
 --  AIMBOT – auto-fire
+--  Fires as fast as the gun's fireRate allows.
+--  Also fires at ALL piercing targets simultaneously per shot
+--  so piercing weapons hit multiple zombies at once.
 -- ============================================================
 local shootCooldown = false
-local function internalShoot(targetPart)
+
+local function internalShoot(primaryTarget)
     if shootCooldown then return end
     if not gunConfig then
         gunConfig = getGunConfig()
@@ -827,14 +770,24 @@ local function internalShoot(targetPart)
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
+
     shootCooldown = true
-    bulletHitRemote:FireServer(
-        targetPart,
-        gunConfig.name,
-        nextBulletId(),
-        root.Position,
-        targetPart.Position
-    )
+    local bulletId  = nextBulletId()
+    local origin    = root.Position
+    local piercing  = gunConfig.piercing or 1
+
+    -- Fire at up to `piercing` targets so multi-hit guns deal full damage
+    local hit = 0
+    for _, zombie in ipairs(zombieFolder:GetChildren()) do
+        if hit >= piercing then break end
+        local humanoid = zombie:FindFirstChild("Humanoid")
+        local target   = zombie:FindFirstChild(SETTINGS.TargetPart)
+        if not humanoid or not target or humanoid.Health <= 0 then continue end
+        bulletHitRemote:FireServer(target, gunConfig.name, bulletId, origin, target.Position)
+        hit += 1
+    end
+
+    -- Cooldown matches gun fire rate exactly for maximum speed
     task.delay(gunConfig.fireRate, function()
         shootCooldown = false
     end)
