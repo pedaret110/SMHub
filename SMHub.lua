@@ -28,7 +28,6 @@ local SETTINGS = {
     TargetPart   = "Head",
     AutoShoot    = false,
     WallCheck    = true,
-    PriorityMode = "Screen",
 }
 
 -- ============================================================
@@ -424,7 +423,7 @@ end
 --  PAGE CONTAINERS
 -- ============================================================
 local SM_CANVAS     = 330
-local AIMBOT_CANVAS = 480
+local AIMBOT_CANVAS = 420
 
 local smContent = Instance.new("Frame")
 smContent.Size=UDim2.new(1,0,0,SM_CANVAS); smContent.BackgroundTransparency=1
@@ -477,17 +476,13 @@ makeLabel(aimbotContent,"TARGET",232,PURPLE)
 makeDropdown(aimbotContent,"Target Part",250,{"Head","UpperTorso","HumanoidRootPart"},"Head",function(v)
     SETTINGS.TargetPart = v
 end)
-makeDropdown(aimbotContent,"Priority",298,{"Screen","Distance"},"Screen",function(v)
-    SETTINGS.PriorityMode = v
-end)
+makeDivider(aimbotContent,298)
+makeLabel(aimbotContent,"EXTRAS",306,PURPLE)
 
-makeDivider(aimbotContent,346)
-makeLabel(aimbotContent,"EXTRAS",354,PURPLE)
-
-makeToggle(aimbotContent,"Wall Check",372,true,function(v)
+makeToggle(aimbotContent,"Wall Check",324,true,function(v)
     SETTINGS.WallCheck = v
 end)
-makeToggle(aimbotContent,"Auto Shoot",420,false,function(v)
+makeToggle(aimbotContent,"Auto Shoot",372,false,function(v)
     SETTINGS.AutoShoot = v
     if v then gunConfig = getGunConfig() end
 end)
@@ -599,33 +594,22 @@ local function hasLineOfSight(from,to)
 end
 
 local function getClosestZombie()
-    local closest,closestDist=nil,math.huge
-    local center=Vector2.new(camera.ViewportSize.X/2,camera.ViewportSize.Y/2)
-    local camPos=camera.CFrame.Position
-    local char=player.Character
-    local hrp=char and char:FindFirstChild("HumanoidRootPart")
+    local closest, closestDist = nil, math.huge
+    local camPos = camera.CFrame.Position
+    local char   = player.Character
+    local hrp    = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
 
-    for _,zombie in ipairs(zombieFolder:GetChildren()) do
-        local hum=zombie:FindFirstChild("Humanoid")
-        local tgt=zombie:FindFirstChild(SETTINGS.TargetPart)
-        if not hum or not tgt or hum.Health<=0 then continue end
-        if SETTINGS.WallCheck and not hasLineOfSight(camPos,tgt.Position) then continue end
-
-        local dist
-        if SETTINGS.PriorityMode=="Distance" then
-            -- closest zombie to character, ignores FOV
-            dist = hrp and (hrp.Position-tgt.Position).Magnitude
-                       or  (camPos-tgt.Position).Magnitude
-        else
-            -- closest zombie to crosshair, must be inside FOV circle
-            local sp,onScreen=camera:WorldToViewportPoint(tgt.Position)
-            if not onScreen then continue end
-            local sd=(Vector2.new(sp.X,sp.Y)-center).Magnitude
-            if sd>SETTINGS.FOV then continue end
-            dist=sd
+    for _, zombie in ipairs(zombieFolder:GetChildren()) do
+        local hum = zombie:FindFirstChild("Humanoid")
+        local tgt = zombie:FindFirstChild(SETTINGS.TargetPart)
+        if not hum or not tgt or hum.Health <= 0 then continue end
+        if SETTINGS.WallCheck and not hasLineOfSight(camPos, tgt.Position) then continue end
+        local dist = (hrp.Position - tgt.Position).Magnitude
+        if dist < closestDist then
+            closestDist = dist
+            closest     = tgt
         end
-
-        if dist<closestDist then closestDist=dist; closest=tgt end
     end
     return closest
 end
