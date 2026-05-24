@@ -35,6 +35,17 @@ local SETTINGS = {
 }
 
 -- ============================================================
+--  FOV CIRCLE (declared early so UI callbacks can reference it)
+-- ============================================================
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius   = 200
+fovCircle.Color    = Color3.fromRGB(120, 40, 200)
+fovCircle.Thickness= 1.5
+fovCircle.Filled   = false
+fovCircle.NumSides = 64
+fovCircle.Visible  = false
+
+-- ============================================================
 --  RAW KEY TRACKING  (Q = 81 toggles aimbot)
 -- ============================================================
 local heldKeys = {}
@@ -592,17 +603,6 @@ makeToggle(aimbotContent, "Auto Shoot", 420, false, function(v)
 end)
 
 -- ============================================================
---  FOV CIRCLE
--- ============================================================
-local fovCircle = Drawing.new("Circle")
-fovCircle.Radius   = SETTINGS.FOV
-fovCircle.Color    = PURPLE
-fovCircle.Thickness= 1.5
-fovCircle.Filled   = false
-fovCircle.NumSides = 64
-fovCircle.Visible  = false
-
--- ============================================================
 --  TAB SWITCHING
 -- ============================================================
 local expanded   = false
@@ -730,23 +730,25 @@ local function getClosestZombie()
         if not humanoid or not target or humanoid.Health <= 0 then continue end
         if SETTINGS.WallCheck and not hasLineOfSight(camPos, target.Position) then continue end
 
-        local dist
-
         if SETTINGS.PriorityMode == "Distance" then
-            dist = hrp
+            -- Closest to character, no FOV restriction
+            local dist = hrp
                 and (hrp.Position - target.Position).Magnitude
                 or  (camPos - target.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closest     = target
+            end
         else
+            -- Closest to crosshair, must be within FOV circle
             local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
             if not onScreen then continue end
             local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
             if screenDist > SETTINGS.FOV then continue end
-            dist = screenDist
-        end
-
-        if dist < closestDist then
-            closestDist = dist
-            closest     = target
+            if screenDist < closestDist then
+                closestDist = screenDist
+                closest     = target
+            end
         end
     end
     return closest
