@@ -23,16 +23,16 @@ local zombieFolder = workspace:WaitForChild("Zombies")
 --  SETTINGS
 -- ============================================================
 local SETTINGS = {
-    AutoSkip       = false,
-    InfStamina     = false,
-    Enabled        = false,
-    FOV            = 200,
-    Smoothness     = 0.12,
-    TargetPart     = "Head",
-    AimbotKey      = 81,
-    AutoShoot      = false,
-    WallCheck      = true,
-    PriorityMode   = "Screen", -- "Screen" = closest to crosshair, "Distance" = closest to player
+    AutoSkip     = false,
+    InfStamina   = false,
+    Enabled      = false,
+    FOV          = 200,
+    Smoothness   = 0.12,
+    TargetPart   = "Head",
+    AimbotKey    = 81,
+    AutoShoot    = false,
+    WallCheck    = true,
+    PriorityMode = "Screen",
 }
 
 -- ============================================================
@@ -126,6 +126,67 @@ end)
 local smHumanoid = player.Character and player.Character:FindFirstChild("Humanoid")
 player.CharacterAdded:Connect(function(char)
     smHumanoid = char:WaitForChild("Humanoid")
+end)
+
+-- ============================================================
+--  FLY (defined early so UI can reference it)
+-- ============================================================
+local flying   = false
+local bodyVel  = nil
+local bodyGyro = nil
+local FLY_SPEED = 60
+
+local function startFly()
+    local char = player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+    hum.PlatformStand = true
+    bodyVel = Instance.new("BodyVelocity")
+    bodyVel.Velocity  = Vector3.zero
+    bodyVel.MaxForce  = Vector3.new(1e5, 1e5, 1e5)
+    bodyVel.Parent    = hrp
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    bodyGyro.P         = 1e4
+    bodyGyro.CFrame    = hrp.CFrame
+    bodyGyro.Parent    = hrp
+    flying = true
+end
+
+local function stopFly()
+    flying = false
+    local char = player.Character
+    local hum  = char and char:FindFirstChild("Humanoid")
+    if hum then hum.PlatformStand = false end
+    if bodyVel  then bodyVel:Destroy();  bodyVel  = nil end
+    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
+end
+
+player.CharacterAdded:Connect(function()
+    bodyVel  = nil
+    bodyGyro = nil
+    if flying then task.wait(0.5); startFly() end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not flying or not bodyVel or not bodyGyro then return end
+    local char = player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local camCF = camera.CFrame
+    local move  = Vector3.zero
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
+    if move.Magnitude > 0 then
+        bodyVel.Velocity = move.Unit * FLY_SPEED
+        bodyGyro.CFrame  = CFrame.new(hrp.Position, hrp.Position + move)
+    else
+        bodyVel.Velocity = Vector3.zero
+        bodyGyro.CFrame  = hrp.CFrame
+    end
 end)
 
 -- ============================================================
@@ -566,7 +627,6 @@ makeDropdown(aimbotContent, "Target Part", 250, {"Head", "UpperTorso", "Humanoid
     SETTINGS.TargetPart = v
 end)
 
--- Priority Mode dropdown (Screen = closest to crosshair, Distance = closest to player)
 makeDropdown(aimbotContent, "Priority", 298, {"Screen", "Distance"}, "Screen", function(v)
     SETTINGS.PriorityMode = v
 end)
@@ -673,67 +733,6 @@ titleBar.InputEnded:Connect(function(input)
 end)
 
 -- ============================================================
---  FLY
--- ============================================================
-local flying    = false
-local bodyVel   = nil
-local bodyGyro  = nil
-local FLY_SPEED = 60
-
-local function startFly()
-    local char = player.Character
-    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    local hum  = char and char:FindFirstChild("Humanoid")
-    if not hrp or not hum then return end
-    hum.PlatformStand = true
-    bodyVel = Instance.new("BodyVelocity")
-    bodyVel.Velocity  = Vector3.zero
-    bodyVel.MaxForce  = Vector3.new(1e5, 1e5, 1e5)
-    bodyVel.Parent    = hrp
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    bodyGyro.P         = 1e4
-    bodyGyro.CFrame    = hrp.CFrame
-    bodyGyro.Parent    = hrp
-    flying = true
-end
-
-local function stopFly()
-    flying = false
-    local char = player.Character
-    local hum  = char and char:FindFirstChild("Humanoid")
-    if hum then hum.PlatformStand = false end
-    if bodyVel  then bodyVel:Destroy();  bodyVel  = nil end
-    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
-end
-
-player.CharacterAdded:Connect(function()
-    bodyVel  = nil
-    bodyGyro = nil
-    if flying then task.wait(0.5); startFly() end
-end)
-
-RunService.Heartbeat:Connect(function()
-    if not flying or not bodyVel or not bodyGyro then return end
-    local char = player.Character
-    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local camCF = camera.CFrame
-    local move  = Vector3.zero
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
-    if move.Magnitude > 0 then
-        bodyVel.Velocity = move.Unit * FLY_SPEED
-        bodyGyro.CFrame  = CFrame.new(hrp.Position, hrp.Position + move)
-    else
-        bodyVel.Velocity = Vector3.zero
-        bodyGyro.CFrame  = hrp.CFrame
-    end
-end)
-
--- ============================================================
 --  AUTO SKIP LOOP
 -- ============================================================
 task.spawn(function()
@@ -793,14 +792,12 @@ local function getClosestZombie()
         local dist
 
         if SETTINGS.PriorityMode == "Distance" then
-            -- Closest to player character
             if hrp then
                 dist = (hrp.Position - target.Position).Magnitude
             else
                 dist = (camPos - target.Position).Magnitude
             end
         else
-            -- Closest to crosshair (screen distance), respect FOV
             local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
             if not onScreen then continue end
             local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
