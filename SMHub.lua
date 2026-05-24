@@ -22,7 +22,6 @@ main.Size = UDim2.new(0, 240, 0, 45)
 main.Position = UDim2.new(0, 20, 0.3, 0)
 main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
 main.BorderSizePixel = 0
-main.ClipsDescendants = true
 main.Parent = screenGui
 
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
@@ -77,11 +76,12 @@ minimizeBtn.Font = Enum.Font.GothamBold
 minimizeBtn.TextSize = 16
 minimizeBtn.Parent = titleBar
 
--- Content Frame (everything below title)
+-- Content Frame
 local content = Instance.new("Frame")
-content.Size = UDim2.new(1, 0, 1, -45)
+content.Size = UDim2.new(1, 0, 0, 130)
 content.Position = UDim2.new(0, 0, 0, 45)
 content.BackgroundTransparency = 1
+content.Visible = false
 content.Parent = main
 
 -- Subtitle
@@ -176,9 +176,11 @@ local minimized = true
 minimizeBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
+        content.Visible = false
         TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 45)}):Play()
         minimizeBtn.Text = "+"
     else
+        content.Visible = true
         TweenService:Create(main, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 175)}):Play()
         minimizeBtn.Text = "—"
     end
