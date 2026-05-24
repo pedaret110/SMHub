@@ -6,7 +6,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local waveRemote = ReplicatedStorage:WaitForChild("WaveRemote")
 local player = Players.LocalPlayer
 
--- GUI Setup
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SMHub"
 screenGui.ResetOnSpawn = false
@@ -21,7 +20,6 @@ main.Parent = screenGui
 
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
 
--- Title
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 35)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 200)
@@ -33,7 +31,6 @@ title.Parent = main
 
 Instance.new("UICorner", title).CornerRadius = UDim.new(0, 10)
 
--- Auto Skip Toggle
 local autoSkip = false
 local lastVoted = false
 
@@ -55,4 +52,31 @@ button.MouseButton1Click:Connect(function()
         button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
         button.Text = "Auto Skip: ON"
     else
-        button.Backgroun
+        button.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+        button.Text = "Auto Skip: OFF"
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if autoSkip then
+            local buttonFound = false
+            for _, gui in ipairs(player.PlayerGui:GetDescendants()) do
+                if (gui:IsA("TextButton") or gui:IsA("ImageButton")) and gui.Text:find("NEXT WAVE") and gui.Visible then
+                    buttonFound = true
+                    break
+                end
+            end
+
+            if buttonFound and not lastVoted then
+                lastVoted = true
+                waveRemote:FireServer("VoteSkip")
+                print("Voted to skip wave!")
+                task.wait(1)
+                lastVoted = false
+            end
+        end
+    end
+end)
+
+print("Survive Monster Hub loaded!")
