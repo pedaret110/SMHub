@@ -604,17 +604,23 @@ local function internalShoot()
 
     shootCooldown=true
     local bulletId=nextBulletId()
-    local origin=root.Position
     local piercing=gunConfig.piercing or 1
     local hit=0
 
     for _,zombie in ipairs(zombieFolder:GetChildren()) do
         if hit>=piercing then break end
         local hum=zombie:FindFirstChild("Humanoid")
-        -- Always use HumanoidRootPart as hit target so elevation doesn't matter
         local tgt=zombie:FindFirstChild("HumanoidRootPart")
         if not hum or not tgt or hum.Health<=0 then continue end
-        bulletHitRemote:FireServer(tgt,gunConfig.name,bulletId,origin,tgt.Position)
+
+        local zombiePos = tgt.Position
+        -- Fake origin at same Y as zombie so server raycast doesn't hit ground
+        local fakeOrigin = Vector3.new(root.Position.X, zombiePos.Y, root.Position.Z)
+        -- Endpoint slightly past the zombie in the same direction
+        local direction = (zombiePos - fakeOrigin).Unit
+        local endpoint = zombiePos + direction * 5
+
+        bulletHitRemote:FireServer(tgt, gunConfig.name, bulletId, fakeOrigin, endpoint)
         hit+=1
     end
 
