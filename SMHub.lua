@@ -26,7 +26,6 @@ main.Parent = screenGui
 
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
--- Drop Shadow
 local shadow = Instance.new("Frame")
 shadow.Size = UDim2.new(1, 10, 1, 10)
 shadow.Position = UDim2.new(0, -5, 0, -5)
@@ -38,7 +37,6 @@ shadow.Parent = main
 
 Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
 
--- Title Bar
 local titleBar = Instance.new("Frame")
 titleBar.Size = UDim2.new(1, 0, 0, 45)
 titleBar.BackgroundColor3 = Color3.fromRGB(120, 40, 200)
@@ -65,7 +63,6 @@ titleText.TextSize = 16
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = titleBar
 
--- Minimize Button
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
 minimizeBtn.Position = UDim2.new(1, -35, 0, 7)
@@ -76,7 +73,7 @@ minimizeBtn.Font = Enum.Font.GothamBold
 minimizeBtn.TextSize = 16
 minimizeBtn.Parent = titleBar
 
--- Content Frame
+-- Content (hidden by default)
 local content = Instance.new("Frame")
 content.Size = UDim2.new(1, 0, 0, 130)
 content.Position = UDim2.new(0, 0, 0, 45)
@@ -84,7 +81,6 @@ content.BackgroundTransparency = 1
 content.Visible = false
 content.Parent = main
 
--- Subtitle
 local subtitle = Instance.new("TextLabel")
 subtitle.Size = UDim2.new(1, -10, 0, 20)
 subtitle.Position = UDim2.new(0, 10, 0, 8)
@@ -96,7 +92,6 @@ subtitle.TextSize = 11
 subtitle.TextXAlignment = Enum.TextXAlignment.Left
 subtitle.Parent = content
 
--- Divider
 local divider = Instance.new("Frame")
 divider.Size = UDim2.new(1, -20, 0, 1)
 divider.Position = UDim2.new(0, 10, 0, 35)
@@ -104,7 +99,6 @@ divider.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 divider.BorderSizePixel = 0
 divider.Parent = content
 
--- Section Label
 local sectionLabel = Instance.new("TextLabel")
 sectionLabel.Size = UDim2.new(1, -20, 0, 20)
 sectionLabel.Position = UDim2.new(0, 10, 0, 45)
@@ -116,7 +110,6 @@ sectionLabel.TextSize = 11
 sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
 sectionLabel.Parent = content
 
--- Auto Skip Toggle
 local autoSkip = false
 local lastVoted = false
 
