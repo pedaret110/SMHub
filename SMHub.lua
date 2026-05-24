@@ -1,5 +1,5 @@
 -- ============================================================
---  SM Hub Combined  |  SM Hub + Aimbot  (Fly removed)
+--  SM Hub Combined  |  SM Hub + Aimbot + Fly
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -23,17 +23,16 @@ local zombieFolder = workspace:WaitForChild("Zombies")
 --  SETTINGS
 -- ============================================================
 local SETTINGS = {
-    -- SM Hub
-    AutoSkip    = false,
-    InfStamina  = false,
-    -- Aimbot
-    Enabled     = false,
-    FOV         = 200,
-    Smoothness  = 0.12,
-    TargetPart  = "Head",
-    AimbotKey   = 81,   -- Q
-    AutoShoot   = false,
-    WallCheck   = true,
+    AutoSkip       = false,
+    InfStamina     = false,
+    Enabled        = false,
+    FOV            = 200,
+    Smoothness     = 0.12,
+    TargetPart     = "Head",
+    AimbotKey      = 81,
+    AutoShoot      = false,
+    WallCheck      = true,
+    PriorityMode   = "Screen", -- "Screen" = closest to crosshair, "Distance" = closest to player
 }
 
 -- ============================================================
@@ -51,7 +50,7 @@ UserInputService.InputEnded:Connect(function(input)
     heldKeys[input.KeyCode.Value] = false
 end)
 
-local aimbotToggleSync = nil  -- assigned after UI build
+local aimbotToggleSync = nil
 
 -- ============================================================
 --  AIMBOT HELPERS
@@ -97,7 +96,6 @@ player.CharacterAdded:Connect(function(char)
     if aimbotToggleSync then aimbotToggleSync(false) end
 end)
 
--- Raycast params
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 local function updateRayFilter(char)
@@ -107,7 +105,7 @@ if player.Character then updateRayFilter(player.Character) end
 player.CharacterAdded:Connect(updateRayFilter)
 
 -- ============================================================
---  STAMINA HOOK  (SM Hub)
+--  STAMINA HOOK
 -- ============================================================
 local staminaBar    = player.PlayerGui:WaitForChild("SprintGui").Frame.Frame
 local originalColor = Color3.new(0.313726, 0.784314, 0.470588)
@@ -131,7 +129,7 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ============================================================
---  GUI SETUP  –  destroy old instances
+--  GUI SETUP
 -- ============================================================
 local playerGui = player.PlayerGui
 for _, name in ipairs({"SMHub", "AimbotUI", "CombinedHub"}) do
@@ -163,7 +161,6 @@ main.BorderSizePixel = 0
 main.Parent          = screenGui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
--- Shadow
 local shadow = Instance.new("Frame")
 shadow.Size                  = UDim2.new(1, 10, 1, 10)
 shadow.Position              = UDim2.new(0, -5, 0, -5)
@@ -174,7 +171,6 @@ shadow.ZIndex                = main.ZIndex - 1
 shadow.Parent                = main
 Instance.new("UICorner", shadow).CornerRadius = UDim.new(0, 14)
 
--- Title bar
 local titleBar = Instance.new("Frame")
 titleBar.Size            = UDim2.new(1, 0, 0, 45)
 titleBar.BackgroundColor3= PURPLE
@@ -182,7 +178,6 @@ titleBar.BorderSizePixel = 0
 titleBar.Parent          = main
 Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 12)
 
--- Fix bottom corners of title bar
 local titleFix = Instance.new("Frame")
 titleFix.Size            = UDim2.new(1, 0, 0.5, 0)
 titleFix.Position        = UDim2.new(0, 0, 0.5, 0)
@@ -242,7 +237,7 @@ local tabSM     = makeTab("SM Hub", 0, true)
 local tabAimbot = makeTab("🎯 Aimbot", 0.5, false)
 
 -- ============================================================
---  SCROLL FRAME (shared)
+--  SCROLL FRAME
 -- ============================================================
 local scrollFrame = Instance.new("ScrollingFrame")
 scrollFrame.Size                   = UDim2.new(1, 0, 0, 340)
@@ -257,14 +252,6 @@ scrollFrame.Parent                 = main
 -- ============================================================
 --  HELPER BUILDERS
 -- ============================================================
-local function makeSection(parent, height)
-    local f = Instance.new("Frame")
-    f.Size            = UDim2.new(1, 0, 0, height)
-    f.BackgroundTransparency = 1
-    f.Parent          = parent
-    return f
-end
-
 local function makeLabel(parent, text, yPos, color)
     local lbl = Instance.new("TextLabel")
     lbl.Size             = UDim2.new(1, -20, 0, 18)
@@ -506,16 +493,14 @@ end
 -- ============================================================
 --  PAGE CONTAINERS
 -- ============================================================
-local SM_CANVAS     = 300
-local AIMBOT_CANVAS = 520
+local SM_CANVAS     = 380
+local AIMBOT_CANVAS = 570
 
--- SM Hub page
 local smContent = Instance.new("Frame")
 smContent.Size            = UDim2.new(1, 0, 0, SM_CANVAS)
 smContent.BackgroundTransparency = 1
 smContent.Parent          = scrollFrame
 
--- Aimbot page
 local aimbotContent = Instance.new("Frame")
 aimbotContent.Size            = UDim2.new(1, 0, 0, AIMBOT_CANVAS)
 aimbotContent.BackgroundTransparency = 1
@@ -540,9 +525,16 @@ makeToggle(smContent, "Infinite Stamina", 104, false, function(v)
 end)
 
 makeDivider(smContent, 152)
-makeLabel(smContent, "CAMERA", 160, PURPLE)
+makeLabel(smContent, "MOVEMENT", 160, PURPLE)
 
-makeSlider(smContent, "Field of View", 180, 70, 120, 70, 1, function(v)
+makeToggle(smContent, "Fly", 180, false, function(v)
+    if v then startFly() else stopFly() end
+end)
+
+makeDivider(smContent, 228)
+makeLabel(smContent, "CAMERA", 236, PURPLE)
+
+makeSlider(smContent, "Field of View", 256, 70, 120, 70, 1, function(v)
     camera.FieldOfView = v
 end)
 
@@ -574,26 +566,31 @@ makeDropdown(aimbotContent, "Target Part", 250, {"Head", "UpperTorso", "Humanoid
     SETTINGS.TargetPart = v
 end)
 
-makeDivider(aimbotContent, 298)
-makeLabel(aimbotContent, "KEYBIND", 306, PURPLE)
+-- Priority Mode dropdown (Screen = closest to crosshair, Distance = closest to player)
+makeDropdown(aimbotContent, "Priority", 298, {"Screen", "Distance"}, "Screen", function(v)
+    SETTINGS.PriorityMode = v
+end)
 
-makeKeybind(aimbotContent, "Aimbot Key", 324, "Q", function(v)
+makeDivider(aimbotContent, 346)
+makeLabel(aimbotContent, "KEYBIND", 354, PURPLE)
+
+makeKeybind(aimbotContent, "Aimbot Key", 372, "Q", function(v)
     SETTINGS.AimbotKey = v
 end)
 
-makeDivider(aimbotContent, 372)
-makeLabel(aimbotContent, "EXTRAS", 380, PURPLE)
+makeDivider(aimbotContent, 420)
+makeLabel(aimbotContent, "EXTRAS", 428, PURPLE)
 
-makeToggle(aimbotContent, "Wall Check", 398, true, function(v)
+makeToggle(aimbotContent, "Wall Check", 446, true, function(v)
     SETTINGS.WallCheck = v
 end)
-makeToggle(aimbotContent, "Auto Shoot", 446, false, function(v)
+makeToggle(aimbotContent, "Auto Shoot", 494, false, function(v)
     SETTINGS.AutoShoot = v
     if v then gunConfig = getGunConfig() end
 end)
 
 -- ============================================================
---  FOV CIRCLE  (Drawing)
+--  FOV CIRCLE
 -- ============================================================
 local fovCircle = Drawing.new("Circle")
 fovCircle.Radius   = SETTINGS.FOV
@@ -607,7 +604,7 @@ fovCircle.Visible  = false
 --  TAB SWITCHING
 -- ============================================================
 local expanded = false
-local currentTab = "sm"  -- "sm" | "aimbot"
+local currentTab = "sm"
 
 local function switchTab(tab)
     currentTab = tab
@@ -676,7 +673,68 @@ titleBar.InputEnded:Connect(function(input)
 end)
 
 -- ============================================================
---  AUTO SKIP LOOP  (SM Hub)
+--  FLY
+-- ============================================================
+local flying    = false
+local bodyVel   = nil
+local bodyGyro  = nil
+local FLY_SPEED = 60
+
+local function startFly()
+    local char = player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChild("Humanoid")
+    if not hrp or not hum then return end
+    hum.PlatformStand = true
+    bodyVel = Instance.new("BodyVelocity")
+    bodyVel.Velocity  = Vector3.zero
+    bodyVel.MaxForce  = Vector3.new(1e5, 1e5, 1e5)
+    bodyVel.Parent    = hrp
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    bodyGyro.P         = 1e4
+    bodyGyro.CFrame    = hrp.CFrame
+    bodyGyro.Parent    = hrp
+    flying = true
+end
+
+local function stopFly()
+    flying = false
+    local char = player.Character
+    local hum  = char and char:FindFirstChild("Humanoid")
+    if hum then hum.PlatformStand = false end
+    if bodyVel  then bodyVel:Destroy();  bodyVel  = nil end
+    if bodyGyro then bodyGyro:Destroy(); bodyGyro = nil end
+end
+
+player.CharacterAdded:Connect(function()
+    bodyVel  = nil
+    bodyGyro = nil
+    if flying then task.wait(0.5); startFly() end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not flying or not bodyVel or not bodyGyro then return end
+    local char = player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local camCF = camera.CFrame
+    local move  = Vector3.zero
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + camCF.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - camCF.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - camCF.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + camCF.RightVector end
+    if move.Magnitude > 0 then
+        bodyVel.Velocity = move.Unit * FLY_SPEED
+        bodyGyro.CFrame  = CFrame.new(hrp.Position, hrp.Position + move)
+    else
+        bodyVel.Velocity = Vector3.zero
+        bodyGyro.CFrame  = hrp.CFrame
+    end
+end)
+
+-- ============================================================
+--  AUTO SKIP LOOP
 -- ============================================================
 task.spawn(function()
     while task.wait(0.1) do
@@ -700,7 +758,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
---  INFINITE STAMINA LOOP  (SM Hub)
+--  INFINITE STAMINA LOOP
 -- ============================================================
 RunService.Heartbeat:Connect(function()
     if SETTINGS.InfStamina and smHumanoid then
@@ -720,19 +778,40 @@ local function hasLineOfSight(from, to)
 end
 
 local function getClosestZombie()
-    local closest, closestDist = nil, SETTINGS.FOV
+    local closest, closestDist = nil, math.huge
     local center = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)
     local camPos = camera.CFrame.Position
+    local char   = player.Character
+    local hrp    = char and char:FindFirstChild("HumanoidRootPart")
 
     for _, zombie in ipairs(zombieFolder:GetChildren()) do
         local humanoid = zombie:FindFirstChild("Humanoid")
         local target   = zombie:FindFirstChild(SETTINGS.TargetPart)
         if not humanoid or not target or humanoid.Health <= 0 then continue end
         if SETTINGS.WallCheck and not hasLineOfSight(camPos, target.Position) then continue end
-        local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
-        if not onScreen then continue end
-        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-        if dist < closestDist then closestDist = dist; closest = target end
+
+        local dist
+
+        if SETTINGS.PriorityMode == "Distance" then
+            -- Closest to player character
+            if hrp then
+                dist = (hrp.Position - target.Position).Magnitude
+            else
+                dist = (camPos - target.Position).Magnitude
+            end
+        else
+            -- Closest to crosshair (screen distance), respect FOV
+            local screenPos, onScreen = camera:WorldToViewportPoint(target.Position)
+            if not onScreen then continue end
+            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+            if screenDist > SETTINGS.FOV then continue end
+            dist = screenDist
+        end
+
+        if dist < closestDist then
+            closestDist = dist
+            closest = target
+        end
     end
     return closest
 end
